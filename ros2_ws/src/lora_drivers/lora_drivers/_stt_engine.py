@@ -67,6 +67,22 @@ MODELOS_DIR = os.environ.get(
 # pagar los 2 segundos extra.
 TAM = os.environ.get("LORA_STT_TAM", "tiny")
 HILOS = int(os.environ.get("LORA_STT_HILOS", "2"))
+
+# Normalizacion automatica del volumen antes de transcribir.
+#
+# NO es un adorno: los microfonos de la placa ESP32-S3 entregan la senal muy
+# floja por USB -- medido en la Pi, un pico del 26-31% de la escala hablandole
+# de cerca. Con ese nivel whisper ALUCINA en vez de transcribir: devolvia
+# '[MUSICA]' o repetia "hola, hola, hola..." indefinidamente. Amplificando la
+# misma grabacion x3.5 salio una frase completa y correcta.
+#
+# Se amplifica hasta dejar el pico en 0.9 (no en 1.0, para no recortar), con un
+# tope de ganancia para no convertir el silencio de sala en ruido atronador, y
+# solo si hay algo que amplificar.
+NORMALIZAR = os.environ.get("LORA_STT_NORMALIZAR", "1") not in ("0", "false", "False")
+PICO_OBJETIVO = 0.9
+GANANCIA_MAX = 20.0
+PICO_MINIMO = 0.002  # por debajo de esto se asume silencio y no se toca
 IDIOMA = os.environ.get("LORA_STT_IDIOMA", "es")
 
 SAMPLE_RATE = 16000
@@ -85,6 +101,7 @@ class ReconocedorVoz:
         self._vad = None
         self._intento_fallido = False
         self.segundos_carga = 0.0
+        self.ultima_ganancia = 1.0   # cuanto amplifico la ultima transcripcion
 
     # ------------------------------------------------------------------ carga
 
@@ -164,6 +181,33 @@ class ReconocedorVoz:
 
     # ------------------------------------------------------------ transcribir
 
+    def _normalizar(self, samples):
+        """Sube el volumen del audio flojo antes de transcribir.
+
+        Devuelve las muestras tal cual si la normalizacion esta desactivada,
+        si el audio ya viene con buen nivel, o si es practicamente silencio
+        (amplificar silencio solo genera ruido y empeora la transcripcion).
+        """
+        if not NORMALIZAR:
+            return samples
+        try:
+            import numpy as np
+
+            arr = np.asarray(samples, dtype=np.float32)
+            pico = float(np.abs(arr).max())
+            if pico < PICO_MINIMO:
+                return samples
+
+            ganancia = min(PICO_OBJETIVO / pico, GANANCIA_MAX)
+            if ganancia <= 1.05:      # ya venia bien, no tocar
+                return samples
+
+            self.ultima_ganancia = ganancia
+            return np.clip(arr * ganancia, -1.0, 1.0)
+        except Exception as e:  # noqa: BLE001 - nunca romper por esto
+            print(f"[STT] no se pudo normalizar: {e}")
+            return samples
+
     def transcribir(self, samples, sample_rate=SAMPLE_RATE):
         """Transcribe un bloque de audio ya capturado.
 
@@ -176,6 +220,8 @@ class ReconocedorVoz:
             return ""
         if samples is None or len(samples) == 0:
             return ""
+
+        samples = self._normalizar(samples)
 
         try:
             stream = self._recognizer.create_stream()
