@@ -20,10 +20,10 @@
   <depend>lifecycle_msgs</depend>
   <depend>lora_interfaces</depend>
 
-  <!-- Dependencias de hardware/servicios -- varias no tienen rosdep key
+  <!-- Dependencias de hardware/servicios - varias no tienen rosdep key
        estándar (edge-tts, piper-tts, picamera2 solo existe en Raspberry Pi
        OS) y se instalan con pip, igual que requirements.txt en el proyecto
-       original -- ver requirements.txt de este paquete. Se listan igual
+       original - ver requirements.txt de este paquete. Se listan igual
        acá como exec_depend para que quede documentado el contrato, aunque
        rosdep no las resuelva todas solo. -->
   <exec_depend>python3-serial</exec_depend>
