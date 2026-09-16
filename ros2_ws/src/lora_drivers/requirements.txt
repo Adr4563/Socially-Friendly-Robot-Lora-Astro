@@ -13,3 +13,9 @@ numpy
 edge-tts
 # piper-tts es opcional (VOZ_MOTOR=piper) -- ver _voice_backends.py.
 # piper-tts
+
+# STT en espanol (_stt_engine.py). sherpa-onnx corre sobre onnxruntime, que ya
+# esta arriba para el detector de emociones -- no suma un runtime nuevo a la Pi.
+# Los modelos NO vienen con el paquete: se bajan una vez (ver _stt_engine.py).
+sherpa-onnx
+sounddevice
