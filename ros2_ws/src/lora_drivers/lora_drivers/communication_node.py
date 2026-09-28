@@ -42,6 +42,27 @@ from . import _music_player
 from ._stt_engine import reconocedor
 from ._voice_backends import Voz
 
+# Frases que whisper "inventa" con ruido o silencio (no las dijo nadie).
+_ALUCINACIONES = {
+    "thank you", "thanks for watching", "gracias", "gracias por ver",
+    "gracias por ver el video", "subtítulos realizados por la comunidad de amara.org",
+    "suscríbete", "música", "[música]", "[music]", "you",
+}
+
+
+def _es_alucinacion(texto):
+    """True si la transcripción parece ruido y no una frase real."""
+    limpio = texto.lower().strip(" .,¡!¿?")
+    if len(limpio) < 2 or limpio in _ALUCINACIONES:
+        return True
+    palabras = [p.strip(".,¡!¿?") for p in limpio.split()]
+    # "so, so, so, so" / "hola hola hola hola": la misma palabra 3+ veces seguidas
+    for i in range(len(palabras) - 2):
+        if palabras[i] and palabras[i] == palabras[i + 1] == palabras[i + 2]:
+            return True
+    return False
+
+
 # Margen tras terminar de hablar antes de volver a escuchar: el parlante y el
 # buffer USB de la placa todavía están sacando la cola del audio.
 _MARGEN_ECO_SEG = 0.6
@@ -68,6 +89,9 @@ class CommunicationNode(LifecycleNode):
         self.declare_parameter('stt_modelo', '')
         # Dispositivo de mpv para voz y música; vacío = salida por defecto.
         self.declare_parameter('audio_salida', '')
+        # Volumen de la música (0-100, la voz no se toca). La placa se
+        # desconectaba con la música fuerte: el parlante pedía demasiada corriente.
+        self.declare_parameter('musica_volumen', 100)
         # Frecuencia que acepta audio_salida; > 0 hace que mpv remuestree
         # con calidad (ver _audio_salida.py). 0 = no forzar.
         self.declare_parameter('audio_muestreo', 0)
@@ -185,16 +209,24 @@ class CommunicationNode(LifecycleNode):
         # escuchar() bloquea hasta que el nodo deja de estar activo o el
         # micrófono se cierra; carga el modelo en este hilo (tarda unos
         # segundos) para no frenar la activación del nodo.
-        reconocedor.escuchar(
-            self._on_texto_micro,
-            detener=lambda: not self._activo,
-            dispositivo=dispositivo,
-            pausado=self._mic_pausado,
-        )
-        if self._activo:
-            self.get_logger().error('[micro] se dejó de escuchar (ver el log [STT])')
+        # Si la placa se desconecta, el micrófono se cierra: se reintenta
+        # cada 3 s hasta que vuelva, sin que haga falta reiniciar el nodo.
+        while self._activo:
+            reconocedor.escuchar(
+                self._on_texto_micro,
+                detener=lambda: not self._activo,
+                dispositivo=dispositivo,
+                pausado=self._mic_pausado,
+            )
+            if not self._activo:
+                break
+            self.get_logger().warning('[micro] se cerró el micrófono -- reintentando en 3 s')
+            time.sleep(3)
 
     def _on_texto_micro(self, texto):
+        if _es_alucinacion(texto):
+            self.get_logger().info(f'[micro] descartado (ruido): {texto!r}')
+            return
         self.get_logger().info(f'[micro] oído: {texto!r}')
         self._publicar_entrada(texto, 'voice_board')
 
@@ -234,7 +266,8 @@ class CommunicationNode(LifecycleNode):
             try:
                 response.reproducido = _music_player.reproducir(
                     request.filename, esperar=True, logger=self.get_logger(),
-                    audio_salida=self._audio_salida, audio_muestreo=self._audio_muestreo)
+                    audio_salida=self._audio_salida, audio_muestreo=self._audio_muestreo,
+                    volumen=self.get_parameter('musica_volumen').value)
             finally:
                 self._audio_termina()
         else:
@@ -242,7 +275,8 @@ class CommunicationNode(LifecycleNode):
             # durante lo máximo que puede durar (REPRODUCCION_MAX_SEG).
             response.reproducido = _music_player.reproducir(
                 request.filename, esperar=False, logger=self.get_logger(),
-                audio_salida=self._audio_salida, audio_muestreo=self._audio_muestreo)
+                audio_salida=self._audio_salida, audio_muestreo=self._audio_muestreo,
+                volumen=self.get_parameter('musica_volumen').value)
             if response.reproducido:
                 self._audio_empieza()
                 self._audio_termina(margen=_music_player.REPRODUCCION_MAX_SEG)

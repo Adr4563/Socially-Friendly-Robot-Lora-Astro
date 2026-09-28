@@ -55,8 +55,20 @@ con `voz_motor: "vits"`.
 ## Otros cambios de esta etapa
 
 - **Micrófono de la placa Waveshare**: `communication_node` escucha con el STT local
-  (whisper `base` + VAD, con normalización de volumen) y publica en `/lora/user_input`.
-  El micrófono se pausa mientras Lora habla o suena música, para que no se escuche a sí misma.
+  (NVIDIA FastConformer en español + VAD, con normalización de volumen) y publica en
+  `/lora/user_input`. El micrófono se pausa mientras Lora habla o suena música, para que
+  no se escuche a sí misma, y se reconecta solo si la placa se desconecta. Se descartan
+  las alucinaciones del reconocedor y lo que se dice mientras Lora está ocupada.
+- **Chat sin voseo**: `lora-chat-libre-v6`, reentrenado (LoRA, en la PC por CPU) con el
+  dataset pasado a tuteo. Frases fijas también en tuteo.
+- **Trivia**: entra solo si se pide ("no quiero jugar" ya no la activa), sale con "no quiero
+  jugar" y lo avisa en voz alta, anuncia la tanda con frases variadas ("¡Prepárate!…") y, si
+  no entiende el tema, lo vuelve a preguntar en lugar de elegir uno al azar.
+- **Nombre**: si no se dijo "me llamo…", Lora lo confirma ("¿Te llamas Adrián?").
+- **Música a 55 %**: con la música fuerte la placa pedía demasiada corriente y se desconectaba.
+- **Caras a 800×480** (resolución nativa de la pantalla de 5"), regeneradas desde los GIF con
+  más calidad. La pantalla va a 65 Hz (`video=HDMI-A-1:800x480@65` en `cmdline.txt`): a 60 Hz
+  aparecían puntos rojos por ruido en la señal HDMI.
 - **Se quitó la página web del teléfono** (`_web_bridge.py` y el motor de voz `telefono`).
 - **Página para mover el carrito**: `moving_control_node` sirve una página en el puerto
   8080 (`http://carrito.local`) con las 9 direcciones, giros y STOP; va por el mismo cable

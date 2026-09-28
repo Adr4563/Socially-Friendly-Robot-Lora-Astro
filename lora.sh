@@ -133,7 +133,7 @@ cmd_estado() {
         # `pipefail` la tubería entera se da por fallida. Fallaba justo en los
         # modelos que aparecían al principio de la lista.
         local modelos; modelos=$(ollama list 2>/dev/null)
-        for m in lora-chat-libre-v4 lora-trivia lora-salida-trivia-v2; do
+        for m in lora-chat-libre-v6 lora-trivia lora-salida-trivia-v2; do
             if printf '%s\n' "$modelos" | grep -q "^$m"; then
                 echo "  OK     $m"
             else
@@ -150,6 +150,7 @@ cmd_estado() {
 
 cmd_run() {
     entorno
+    export LORA_STT_GUARDAR="$HOME/.lora/frases"   # guarda cada frase oída en ~/.lora/frases (comentar para desactivar)
     info "Arrancando el robot -- Ctrl+C para parar"
     echo "  Habla cerca de la placa de audio (micrófono Waveshare)"
     ros2 launch lora_bringup lora_bringup.launch.py

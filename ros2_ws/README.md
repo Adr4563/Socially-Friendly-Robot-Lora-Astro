@@ -118,9 +118,9 @@ Los valores de `MotionCommand` son los mismos comandos de texto que ya entiende 
 
 | Argumento | Por defecto | Efecto |
 |---|---|---|
-| `voz_motor` | `telefono` | Motor de voz (`telefono` \| `piper` \| `edge`) de `communication_node` y `orchestrator_node` |
+| `voz_motor` | `vits` | Motor de voz (`vits` \| `piper` \| `edge`) de `communication_node` y `orchestrator_node` |
 | `carrito_port` | `/dev/ttyACM0` | Puerto Serial del ESP32-S3 |
-| `chat_model` | `lora-chat-libre-v4` | Se pasa al orquestador como `CHAT_MODEL` |
+| `chat_model` | `lora-chat-libre-v6` | Se pasa al orquestador como `CHAT_MODEL` |
 | `trivia_model` | `lora-trivia` | Se pasa como `TRIVIA_MODEL` |
 | `salida_trivia_model` | `lora-salida-trivia-v2` | Se pasa como `SALIDA_TRIVIA_MODEL` |
 | `chat_server_host` | `http://localhost:11434` | Se pasa como `CHAT_SERVER_HOST` |
@@ -137,7 +137,8 @@ Los valores de `MotionCommand` son los mismos comandos de texto que ya entiende 
 | `communication_node` | `voz_piper_modelo` | `""` (usa `~/piper-voces/es_CO-dii.onnx`) |
 | `communication_node` | `mic_dispositivo` / `audio_salida` | placa Waveshare (`plughw:CARD=Board,DEV=0`) |
 | `communication_node` | `audio_muestreo` | `16000` (la placa solo acepta 16 kHz) |
-| `communication_node` | `stt_modelo` | `base` |
+| `communication_node` | `stt_modelo` | `fastconformer` (`fastconformer` \| `base` \| `tiny`) |
+| `communication_node` | `musica_volumen` | `55` (la voz no se toca) |
 | `moving_control_node` | `carrito_port` | `/dev/ttyACM0` |
 | `moving_control_node` | `control_web_port` | `8080` (página para mover el carrito: `http://carrito.local`) |
 | `orchestrator_node` | `voz_motor` | `vits` (**debe coincidir** con el de `communication_node`) |
@@ -171,7 +172,7 @@ colcon build --symlink-install
 source install/setup.bash
 
 # 3. Tener Ollama en marcha con los 3 modelos importados
-#    (lora-chat-libre-v4, lora-trivia y lora-salida-trivia-v2, con `ollama create`)
+#    (lora-chat-libre-v6, lora-trivia y lora-salida-trivia-v2, con `ollama create`)
 
 # 4. Lanzar todo
 ros2 launch lora_bringup lora_bringup.launch.py

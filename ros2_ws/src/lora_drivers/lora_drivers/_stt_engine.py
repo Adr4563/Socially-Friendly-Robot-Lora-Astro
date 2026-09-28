@@ -87,6 +87,11 @@ IDIOMA = os.environ.get("LORA_STT_IDIOMA", "es")
 
 SAMPLE_RATE = 16000
 
+# Si se define, cada frase que oye el micrófono se guarda como WAV en esta
+# carpeta (nombre: hora + texto transcrito). Sirve para comparar modelos de
+# reconocimiento con la voz real del usuario captada por la placa.
+GUARDAR_FRASES = os.environ.get("LORA_STT_GUARDAR", "")
+
 
 class ReconocedorVoz:
     """Convierte audio en texto. Se carga perezosamente en el primer uso."""
@@ -106,6 +111,16 @@ class ReconocedorVoz:
     # ------------------------------------------------------------------ carga
 
     def _rutas(self):
+        if self.tam == "fastconformer":
+            base = os.path.join(self.modelos_dir, "asr",
+                                "sherpa-onnx-nemo-fast-conformer-transducer-es-1424-int8")
+            return {
+                "encoder": os.path.join(base, "encoder.int8.onnx"),
+                "decoder": os.path.join(base, "decoder.int8.onnx"),
+                "joiner": os.path.join(base, "joiner.int8.onnx"),
+                "tokens": os.path.join(base, "tokens.txt"),
+                "vad": os.path.join(self.modelos_dir, "silero_vad.onnx"),
+            }
         base = os.path.join(self.modelos_dir, f"sherpa-onnx-whisper-{self.tam}")
         return {
             "encoder": os.path.join(base, f"{self.tam}-encoder.int8.onnx"),
@@ -140,7 +155,26 @@ class ReconocedorVoz:
 
         t0 = time.perf_counter()
         try:
-            self._recognizer = sherpa_onnx.OfflineRecognizer.from_whisper(
+            if self.tam == "fastconformer":
+                # NVIDIA NeMo FastConformer Transducer, entrenado solo en
+                # español. Comparado con la voz real captada por la placa:
+                # 4-5x más rápido que whisper-base (0.5 s por frase corta) y NO
+                # inventa texto con ruido (whisper devolvía "(Música)",
+                # "Thank you"...). Se equivoca un poco más en algunas palabras.
+                self._recognizer = sherpa_onnx.OfflineRecognizer.from_transducer(
+                    encoder=rutas["encoder"], decoder=rutas["decoder"],
+                    joiner=rutas["joiner"], tokens=rutas["tokens"],
+                    model_type="nemo_transducer", num_threads=self.hilos)
+            else:
+                self._recognizer = self._whisper(sherpa_onnx, rutas)
+        except Exception as e:  # noqa: BLE001 - falla gracioso, no tumbar el nodo
+            print(f"[STT] no se pudo cargar el modelo: {e}")
+            self._intento_fallido = True
+            return False
+        return self._terminar_carga(sherpa_onnx, rutas, t0)
+
+    def _whisper(self, sherpa_onnx, rutas):
+        return sherpa_onnx.OfflineRecognizer.from_whisper(
                 encoder=rutas["encoder"],
                 decoder=rutas["decoder"],
                 tokens=rutas["tokens"],
@@ -149,11 +183,8 @@ class ReconocedorVoz:
                 language=self.idioma,
                 task="transcribe",
             )
-        except Exception as e:  # noqa: BLE001 - falla gracioso, no tumbar el nodo
-            print(f"[STT] no se pudo cargar el modelo: {e}")
-            self._intento_fallido = True
-            return False
 
+    def _terminar_carga(self, sherpa_onnx, rutas, t0):
         # El VAD es opcional: solo hace falta para escuchar del micrófono en
         # continuo. Si no está, transcribir() sigue funcionando igual.
         if os.path.exists(rutas["vad"]):
@@ -170,7 +201,7 @@ class ReconocedorVoz:
 
         self.segundos_carga = time.perf_counter() - t0
         print(
-            f"[STT] modelo whisper-{self.tam} listo en {self.segundos_carga:.1f}s "
+            f"[STT] modelo {self.tam} listo en {self.segundos_carga:.1f}s "
             f"({self.hilos} hilos, idioma={self.idioma})"
         )
         return True
@@ -231,6 +262,24 @@ class ReconocedorVoz:
         except Exception as e:  # noqa: BLE001
             print(f"[STT] fallo al transcribir: {e}")
             return ""
+
+    def _guardar_frase(self, muestras, texto):
+        try:
+            import re
+            import wave
+
+            import numpy as np
+
+            os.makedirs(GUARDAR_FRASES, exist_ok=True)
+            nombre = time.strftime("%H%M%S") + "_" + re.sub(r"[^\w]+", "_", texto)[:40] + ".wav"
+            pcm = (np.clip(np.asarray(muestras, dtype=np.float32), -1, 1) * 32767).astype(np.int16)
+            with wave.open(os.path.join(GUARDAR_FRASES, nombre), "wb") as w:
+                w.setnchannels(1)
+                w.setsampwidth(2)
+                w.setframerate(SAMPLE_RATE)
+                w.writeframes(pcm.tobytes())
+        except Exception as e:  # noqa: BLE001 - nunca romper la escucha por esto
+            print(f"[STT] no se pudo guardar la frase: {e}")
 
     def transcribir_wav(self, ruta):
         """Transcribe un archivo WAV mono. Útil para pruebas y para el bench."""
@@ -335,6 +384,8 @@ class ReconocedorVoz:
                     frase = self._vad.front.samples
                     self._vad.pop()
                     texto = self.transcribir(frase)
+                    if GUARDAR_FRASES:
+                        self._guardar_frase(frase, texto)
                     # Si Lora empezó a hablar mientras se transcribía, la
                     # frase puede ser su propia voz: se descarta.
                     if texto and not (pausado is not None and pausado()):

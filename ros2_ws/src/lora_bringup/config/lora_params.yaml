@@ -25,9 +25,13 @@ communication_node:
     # La placa solo acepta 16 kHz: mpv remuestrea con calidad (evita la voz
     # "robótica" del remuestreo lineal de ALSA). 0 = no forzar.
     audio_muestreo: 16000
-    # Modelo de reconocimiento de voz: tiny (~2.5 s por frase) | base
+    # Volumen de la música (0-100). Más bajo que la voz: con la música fuerte
+    # la placa pedía demasiada corriente y se desconectaba.
+    musica_volumen: 55
+    # Modelo de reconocimiento de voz: fastconformer (NVIDIA, solo español,
+    # ~0.5 s por frase, no inventa texto con ruido) | tiny | base (whisper).
     # (~4.6 s, pero acierta más: entiende "Lora" donde tiny oye "Laura").
-    stt_modelo: "base"
+    stt_modelo: "fastconformer"
 
 moving_control_node:
   ros__parameters:

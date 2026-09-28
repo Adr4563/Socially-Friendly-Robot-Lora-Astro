@@ -27,7 +27,7 @@ _TIMEOUT_ESPERA_SEG = REPRODUCCION_MAX_SEG + 10
 
 
 def reproducir(nombre_archivo, esperar=False, logger=None, audio_salida=None,
-               audio_muestreo=0):
+               audio_muestreo=0, volumen=100):
     """Reproduce un archivo de musica/ recortado a REPRODUCCION_MAX_SEG.
 
     `esperar=False` (default): lanza mpv y vuelve enseguida -- la música
@@ -43,7 +43,7 @@ def reproducir(nombre_archivo, esperar=False, logger=None, audio_salida=None,
     está mpv. `logger`: el logger del nodo ROS2 (node.get_logger()) -- se
     usa en vez de print() para que quede en el log estándar de ROS2, mismo
     criterio del resto de los módulos portados. `audio_salida` y
-    `audio_muestreo`: ver _audio_salida.opciones_mpv()."""
+    `audio_muestreo`: ver _audio_salida.opciones_mpv(). `volumen`: 0-100."""
     def _log(msg):
         if logger is not None:
             logger.warning(msg)
@@ -55,7 +55,7 @@ def reproducir(nombre_archivo, esperar=False, logger=None, audio_salida=None,
         _log(f"[música] no existe {ruta}, no se reproduce")
         return False
     cmd = (["mpv", "--no-video", f"--length={REPRODUCCION_MAX_SEG}", "--really-quiet"]
-           + opciones_mpv(audio_salida, audio_muestreo) + [ruta])
+           + opciones_mpv(audio_salida, audio_muestreo) + [f"--volume={volumen}", ruta])
     try:
         if not esperar:
             subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

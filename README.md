@@ -85,7 +85,7 @@ Ollama corre en local (`http://localhost:11434`) y se usa su API compatible con 
 
 | Variable de entorno | Valor por defecto | Rol |
 |---|---|---|
-| `CHAT_MODEL` | `lora-chat-libre-v4` | Genera las respuestas del Chat libre |
+| `CHAT_MODEL` | `lora-chat-libre-v6` | Genera las respuestas del Chat libre. La v6 se reentrenó con el dataset pasado de voseo a tuteo (15/16 en `probar_conversacion.py`, frente a 14/16 de la v4) |
 | `TRIVIA_MODEL` | `lora-trivia` | Reacciones del juego de emociones |
 | `SALIDA_TRIVIA_MODEL` | `lora-salida-trivia-v2` | Decide si el mensaje es una RESPUESTA o una petición de SALIR a mitad de una pregunta de Trivia |
 
@@ -114,9 +114,16 @@ Lora espera a terminar de hablar antes de continuar con el turno.
 
 ### Entrada (lo que dice el usuario)
 
-No hay reconocimiento de voz local en la Pi. Se probó `faster-whisper`, pero se cuelga sin dar error si se construye fuera del hilo principal, y ese problema no se resolvió.
+Reconocimiento de voz **local** en la Pi, con el micrófono de la placa de audio: VAD (Silero) para cortar las frases y **NVIDIA NeMo FastConformer Transducer en español** (sherpa-onnx, int8, ~100 MB) para transcribirlas. Se eligió comparando 5 modelos con la voz real captada por la placa:
 
-La transcripción la hace el **navegador del teléfono** (`SpeechRecognition`). Funciona bien en Chrome para Android; Safari en iOS no lo implementa. Además exige un contexto seguro (HTTPS o localhost), y la Pi sirve HTTP plano en una IP de la red local, así que hay que activar una vez en cada teléfono el flag de Chrome que trata ese origen como seguro.
+| Modelo | Error (5 frases) | Frase de 12 s | Frase corta | Con ruido |
+|---|---|---|---|---|
+| Whisper base | 17 % | 13.7 s | 2.2-2.4 s | Inventa texto ("(Ruido", "Thank you") |
+| **FastConformer Transducer es** | 26 % | **3.9 s** | **~0.5 s** | **No inventa** |
+| FastConformer CTC es | 30 % | 3.6 s | 0.3-0.4 s | No inventa |
+| Canary 180M | 17 % | 17 s | 1.2 s | Inventa ("sí") |
+
+Además, antes de pasar el texto a Lora se descartan las alucinaciones típicas (palabras repetidas, "Thank you", "gracias por ver"…) y lo que se dice mientras Lora está ocupada. El micrófono se pausa mientras Lora habla y se reconecta solo si la placa se desconecta. Con `LORA_STT_GUARDAR` (activo en `lora.sh run`) cada frase oída se guarda en `~/.lora/frases/` para poder comparar modelos. El modelo se cambia con el parámetro `stt_modelo` (`fastconformer`, `base`, `tiny`).
 
 ---
 
