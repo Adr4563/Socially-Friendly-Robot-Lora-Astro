@@ -27,6 +27,7 @@ import difflib
 import random
 import threading
 import time
+import unicodedata
 
 import rclpy
 from rclpy.callback_groups import ReentrantCallbackGroup
@@ -52,7 +53,6 @@ TEMAS_CATALOGO = [
     "Arte, música y cultura - Nivel 1", "Arte, música y cultura - Nivel 2",
     "Arte, música y cultura - Nivel 3", "Arte, música y cultura - Nivel 4",
     "Arte, música y cultura - Nivel 5", "Arte, música y cultura - Nivel 6",
-    "Arte, música y cultura - Nivel 7",
     "Ciencia y naturaleza - Nivel 1", "Ciencia y naturaleza - Nivel 2",
     "Ciencia y naturaleza - Nivel 3", "Ciencia y naturaleza - Nivel 4",
     "Ciencia y naturaleza - Nivel 5", "Ciencia y naturaleza - Nivel 6",
@@ -94,10 +94,9 @@ RESPUESTAS_TRIVIA_ERROR = [
 ]
 
 SALUDOS_APERTURA = [
-    "Hola, mi nombre es Lora, ¿cuál es tu nombre?",
-    "¡Hola! Soy Lora. ¿Y vos cómo te llamás?",
-    "Hola, hola. Soy Lora, tu robot. ¿Quién sos vos?",
-    "¡Buenas! Me llamo Lora. Contame tu nombre.",
+    "Hola, mucho gusto. ¿Cómo te llamas?",
+    "¡Hola! ¿Cómo te llamas?",
+    "Hola, ¿cuál es tu nombre?",
 ]
 DESPEDIDAS = [
     "¡Hasta luego, {nombre}! Que te vaya bien.",
@@ -146,6 +145,60 @@ _PALABRAS_RESPUESTA_CORTA = 4
 
 RUTAS = ["TRIVIA", "CHAT_LIBRE"]
 
+# Frases con las que la gente se presenta; lo que viene DESPUÉS es el nombre.
+# Van de la más larga a la más corta para que "yo soy" gane a "soy".
+# Sin tildes: se comparan contra el texto ya sin tildes, porque el STT a veces
+# las pone donde no van ("me llamó Adrián").
+_PRESENTACIONES = [
+    "mi nombre es", "me puedes decir", "puedes decirme", "me dicen",
+    "me llaman", "me llamo", "llamame", "dime",
+    "yo soy", "soy",
+]
+# Palabras que no pueden ser el nombre (saludos y relleno del habla), sin tildes.
+_NO_NOMBRE = {
+    "hola", "buenas", "buenos", "dias", "tardes", "noches", "bueno", "bien",
+    "pues", "eh", "este", "mmm", "ah", "oye", "lora", "laura", "yo", "mi",
+    "me", "el", "la", "un", "una", "de", "que", "y", "si", "claro", "gracias",
+    "nombre", "es", "llamo", "no",
+}
+
+
+def _sin_tildes(texto):
+    return "".join(c for c in unicodedata.normalize("NFD", texto)
+                   if unicodedata.category(c) != "Mn")
+
+
+def extraer_nombre(texto):
+    """Saca solo el nombre de una presentación hablada.
+
+    "me llamo Adrián" -> "Adrián", "hola, soy María José" -> "María",
+    "Adrián" -> "Adrián". Devuelve la primera palabra tras la frase de
+    presentación; si no hay ninguna, la primera palabra que no sea un
+    saludo. None si no queda nada que parezca un nombre.
+    """
+    limpio = texto.lower()
+    for signo in "¡!¿?.,;:\"'()":
+        limpio = limpio.replace(signo, " ")
+    palabras = limpio.split()
+    comparables = [_sin_tildes(p) for p in palabras]
+
+    inicio = 0
+    for frase in _PRESENTACIONES:
+        partes = frase.split()
+        for i in range(len(comparables) - len(partes) + 1):
+            if comparables[i:i + len(partes)] == partes:
+                inicio = i + len(partes)
+                break
+        else:
+            continue
+        break
+
+    # Se devuelve la palabra original, con sus tildes ("Adrián").
+    for palabra, comparable in zip(palabras[inicio:], comparables[inicio:]):
+        if comparable not in _NO_NOMBRE and palabra.isalpha():
+            return palabra[0].upper() + palabra[1:]
+    return None
+
 
 class OrchestratorNode(Node):
 
@@ -158,7 +211,7 @@ class OrchestratorNode(Node):
         # `voz_motor`; los dos tienen que declararse con el mismo valor por
         # separado (mismo trade-off ya documentado en personalidad.py del
         # proyecto original sobre duplicar un default entre dos módulos).
-        self.declare_parameter('voz_motor', 'telefono')
+        self.declare_parameter('voz_motor', 'piper')
         self.declare_parameter('esperar_telefono_seg', 60)
 
         self._bridge = RosBridge(self)
@@ -413,7 +466,9 @@ class OrchestratorNode(Node):
         else:
             self._preguntar_siguiente()
 
-    def _manejar_trivia(self, mensaje_usuario, persona_str):
+    def _manejar_trivia(self, mensaje_usuario, persona_str, recien_elegida=False):
+        """`recien_elegida`: el usuario acaba de pedir Trivia desde el chat --
+        Lora lo confirma en voz alta antes de ofrecer los temas."""
         estado = self.estado
 
         if estado["esperando_tema"]:
@@ -457,6 +512,8 @@ class OrchestratorNode(Node):
         opciones = ", ".join(random.sample(TEMAS_CATALOGO, 5))
         estado["esperando_tema"] = True
         anuncio = f"Puedes elegir entre: {opciones}."
+        if recien_elegida:
+            anuncio = f"¡Vamos a jugar Trivia! {anuncio}"
         self.get_logger().info(f"Asistente: {anuncio}")
         self._bridge.hablar(anuncio)
 
@@ -551,7 +608,7 @@ class OrchestratorNode(Node):
             return
 
         if self.estado["esperando_nombre"]:
-            nombre = entrada or "amigo"
+            nombre = extraer_nombre(entrada) or "amigo"
             self.estado["nombre"] = nombre
             self.estado["esperando_nombre"] = False
             self.estado["persona_str"] = construir_personalidad()
@@ -589,7 +646,7 @@ class OrchestratorNode(Node):
             if self.estado["pregunta_pendiente"] is not None or self.estado["esperando_tema"]:
                 self._reanudar_trivia()
             else:
-                self._manejar_trivia(entrada, persona_str)
+                self._manejar_trivia(entrada, persona_str, recien_elegida=True)
         else:
             self._manejar_chat_libre(entrada, persona_str)
 

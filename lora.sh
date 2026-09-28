@@ -19,7 +19,7 @@ ROS_SETUP="/opt/ros/lyrical/setup.bash"
 WS="$HOME/ros2_ws"
 VENV="$HOME/.lora/venv/bin/python"
 STT="$HOME/lora-stt"
-VOZ_PIPER="$HOME/piper-voces/es_MX-claude-high.onnx"
+VOZ_PIPER="$HOME/piper-voces/es_CO-dii.onnx"
 
 # La placa ESP32-S3 se expone como tarjeta de sonido USB con este nombre.
 # Si se cambia el firmware, cambia también aquí.
@@ -151,7 +151,7 @@ cmd_estado() {
 cmd_run() {
     entorno
     info "Arrancando el robot -- Ctrl+C para parar"
-    echo "  Página web: http://$(hostname -I | awk '{print $1}'):8081/"
+    echo "  Habla cerca de la placa de audio (micrófono Waveshare)"
     ros2 launch lora_bringup lora_bringup.launch.py
 }
 

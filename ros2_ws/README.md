@@ -129,13 +129,18 @@ Los valores de `MotionCommand` son los mismos comandos de texto que ya entiende 
 
 | Nodo | Parámetro | Por defecto |
 |---|---|---|
-| `communication_node` | `voz_motor` | `telefono` |
+| `communication_node` | `voz_motor` | `vits` (`vits` \| `piper` \| `edge`) |
+| `communication_node` | `voz_vits_dir` | `/home/pi/.lora/modelos/vits-piper-es_ES-glados-medium` |
+| `communication_node` | `voz_vits_ruido` / `voz_vits_ruido_w` / `voz_vits_duracion` | `0.667` / `0.5` / `1.15` (ver [`voces/`](../voces/)) |
+| `communication_node` | `voz_tono_semitonos` | `1.5` |
 | `communication_node` | `voz_edge` | `es-AR-ElenaNeural` |
-| `communication_node` | `voz_piper_modelo` | `""` (usa `~/piper-voces/es_MX-claude-high.onnx`) |
-| `communication_node` | `voz_port` | `8081` |
+| `communication_node` | `voz_piper_modelo` | `""` (usa `~/piper-voces/es_CO-dii.onnx`) |
+| `communication_node` | `mic_dispositivo` / `audio_salida` | placa Waveshare (`plughw:CARD=Board,DEV=0`) |
+| `communication_node` | `audio_muestreo` | `16000` (la placa solo acepta 16 kHz) |
+| `communication_node` | `stt_modelo` | `base` |
 | `moving_control_node` | `carrito_port` | `/dev/ttyACM0` |
-| `orchestrator_node` | `voz_motor` | `telefono` (**debe coincidir** con el de `communication_node`) |
-| `orchestrator_node` | `esperar_telefono_seg` | `60` |
+| `moving_control_node` | `control_web_port` | `8080` (página para mover el carrito: `http://carrito.local`) |
+| `orchestrator_node` | `voz_motor` | `vits` (**debe coincidir** con el de `communication_node`) |
 
 ### Variables de entorno de `lora_brain`
 

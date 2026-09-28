@@ -253,7 +253,7 @@ class ReconocedorVoz:
 
     # -------------------------------------------------------------- micrófono
 
-    def escuchar(self, al_transcribir, detener=None, dispositivo=None):
+    def escuchar(self, al_transcribir, detener=None, dispositivo=None, pausado=None):
         """Escucha el micrófono y llama `al_transcribir(texto)` por cada frase.
 
         Corta las frases con el VAD (silencio de 0.25s), así que no hace falta
@@ -261,6 +261,20 @@ class ReconocedorVoz:
 
         `detener` es un callable opcional que devuelve True para salir del
         bucle -- pensado para que el nodo lo apague en `on_deactivate`.
+
+        `pausado` es un callable opcional: mientras devuelva True el audio se
+        lee y se DESCARTA, y el VAD se vacía. Sirve para que Lora no se
+        escuche a sí misma cuando habla o suena música por el mismo parlante
+        de la placa.
+
+        `dispositivo` es un nombre ALSA (p. ej. "plughw:CARD=Board,DEV=0");
+        None usa el de por defecto.
+
+        El audio se lee con `arecord` y no con sounddevice: en la Pi,
+        PortAudio intenta conectarse a PulseAudio al inicializar y falla
+        cuando el proceso corre sin sesión gráfica (por SSH o desde el
+        launch), y ni siquiera llega a abrir ALSA. `arecord` va directo a
+        ALSA, que es lo mismo que usa `lora.sh micro`.
 
         Esta función BLOQUEA. El llamador la corre en su propio hilo.
         """
@@ -270,43 +284,66 @@ class ReconocedorVoz:
             print("[STT] falta silero_vad.onnx; no se puede escuchar en continuo")
             return
 
-        try:
-            import numpy as np
-            import sounddevice as sd
-        except ImportError:
-            print("[STT] falta sounddevice (pip install sounddevice)")
-            return
+        import subprocess
+
+        import numpy as np
+
+        cmd = ["arecord", "-q", "-t", "raw", "-f", "S16_LE",
+               "-r", str(SAMPLE_RATE), "-c", "1"]
+        if dispositivo:
+            cmd += ["-D", dispositivo]
 
         ventana = 512  # tamaño de ventana que espera silero
+        bytes_bloque = int(0.1 * SAMPLE_RATE) * 2  # 100 ms de S16 mono
         buffer = np.array([], dtype="float32")
+        estaba_pausado = False
 
         try:
-            with sd.InputStream(
-                channels=1,
-                dtype="float32",
-                samplerate=SAMPLE_RATE,
-                device=dispositivo,
-            ) as mic:
-                print("[STT] escuchando...")
-                while True:
-                    if detener is not None and detener():
-                        break
+            mic = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except FileNotFoundError:
+            print("[STT] falta arecord (sudo apt install alsa-utils)")
+            return
 
-                    bloque, _ = mic.read(int(0.1 * SAMPLE_RATE))
-                    buffer = np.concatenate([buffer, bloque.reshape(-1)])
+        try:
+            print(f"[STT] escuchando en {dispositivo or 'el micrófono por defecto'}...")
+            while True:
+                if detener is not None and detener():
+                    break
 
-                    while len(buffer) > ventana:
-                        self._vad.accept_waveform(buffer[:ventana])
-                        buffer = buffer[ventana:]
+                crudo = mic.stdout.read(bytes_bloque)
+                if not crudo:
+                    error = mic.stderr.read().decode(errors="replace").strip()
+                    print(f"[STT] el micrófono se cerró: {error or 'sin detalle'}")
+                    break
 
-                    while not self._vad.empty():
-                        frase = self._vad.front.samples
-                        self._vad.pop()
-                        texto = self.transcribir(frase)
-                        if texto:
-                            al_transcribir(texto)
+                if pausado is not None and pausado():
+                    if not estaba_pausado:
+                        self._vad.reset()
+                        buffer = np.array([], dtype="float32")
+                        estaba_pausado = True
+                    continue
+                estaba_pausado = False
+
+                bloque = np.frombuffer(crudo, dtype=np.int16).astype("float32") / 32768.0
+                buffer = np.concatenate([buffer, bloque])
+
+                while len(buffer) > ventana:
+                    self._vad.accept_waveform(buffer[:ventana])
+                    buffer = buffer[ventana:]
+
+                while not self._vad.empty():
+                    frase = self._vad.front.samples
+                    self._vad.pop()
+                    texto = self.transcribir(frase)
+                    # Si Lora empezó a hablar mientras se transcribía, la
+                    # frase puede ser su propia voz: se descarta.
+                    if texto and not (pausado is not None and pausado()):
+                        al_transcribir(texto)
         except Exception as e:  # noqa: BLE001
             print(f"[STT] el micrófono falló: {e}")
+        finally:
+            mic.kill()
+            mic.wait()
 
 
 # Instancia compartida, igual que el patrón de los Clients del proyecto

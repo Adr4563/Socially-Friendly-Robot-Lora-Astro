@@ -106,9 +106,9 @@ Hay tres motores de voz, que se eligen con el parámetro `voz_motor`:
 
 | Motor | Cómo funciona | Cuándo usarlo |
 |---|---|---|
-| `telefono` (**por defecto**) | Sintetiza el **navegador del teléfono** (`speechSynthesis`), que recibe el texto por SSE | No consume CPU en la Pi. Requiere tener la página abierta y haber tocado "Activar voz" |
-| `piper` | TTS neuronal 100 % local (ONNX), voz `es_MX-claude-high` (~60 MB) | Sin internet. Usa un solo hilo para dejar CPU a Ollama (sintetiza igual de rápido con 1 hilo que con 4) |
-| `edge` | `edge-tts` (Microsoft, en la nube), voz `es-AR-ElenaNeural` | **Respaldo** automático si nadie conecta el teléfono en 20 s o si Piper no carga |
+| `vits` (**por defecto**) | Voz VITS/Piper con sherpa-onnx, 100 % local: **GLaDOS en español** con tono y ritmo ajustados (ver [`voces/`](voces/)) | Sin internet. Sale por el parlante de la placa de audio |
+| `piper` | TTS neuronal 100 % local (ONNX), voz `es_CO-dii` (~60 MB) | Sin internet. Usa un solo hilo para dejar CPU a Ollama (sintetiza igual de rápido con 1 hilo que con 4) |
+| `edge` | `edge-tts` (Microsoft, en la nube), voz `es-AR-ElenaNeural` | **Respaldo** automático si la voz local no carga |
 
 Lora espera a terminar de hablar antes de continuar con el turno.
 
