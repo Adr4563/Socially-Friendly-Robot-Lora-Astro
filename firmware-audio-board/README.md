@@ -1,12 +1,14 @@
 # Firmware de la placa de audio — ESP32-S3-AUDIO-Board
 
-Firmware que convierte la **Waveshare ESP32-S3-AUDIO-Board** en una **tarjeta de sonido USB** (USB Audio Class 2.0) para la Raspberry Pi de Lora.
+Firmware que convierte la **Waveshare ESP32-S3-AUDIO-Board** en una **tarjeta de sonido USB** (USB Audio Class 2.0) para la Raspberry Pi de ARFORD.
 
-Con esto, la placa aporta el hardware que a Lora le faltaba —micrófonos y altavoz— y la Pi la ve como un dispositivo de audio más, sin protocolos propios ni nada por red.
+Con esto, la placa aporta el hardware que a ARFORD le faltaba —micrófonos y altavoz— y la Pi la ve como un dispositivo de audio más, sin protocolos propios ni nada por red.
 
 > **Estado: compilado, grabado y funcionando a medias.**
 >
 > - ✅ La Raspberry Pi la reconoce como tarjeta de sonido: `card 3: Lora Audio Board`, visible en `arecord -l` y en `aplay -l`. El USB cambió de identidad, de `303a:1001` (puerto serie) a `303a:8000` (audio).
+
+> **El nombre USB sigue siendo `Lora Audio Board`**, no ARFORD: lo fija `CONFIG_UAC_TUSB_PRODUCT` en `sdkconfig.defaults` y es lo que la placa ya flasheada reporta. Los comandos de este README usan `plughw:CARD=Lora` por eso. Cambiarlo requiere editar ese valor y **reflashear**, así que se deja como está hasta que haya otro motivo para volver a grabar la placa.
 > - ⚠️ **Altavoz:** `aplay` reproduce sin errores, pero no está confirmado de oído.
 > - ❌ **Micrófono:** entrega **silencio digital exacto** (RMS 0.0, pico 0 sobre 80.000 muestras). No es ruido bajo: son ceros.
 >
@@ -16,13 +18,13 @@ Con esto, la placa aporta el hardware que a Lora le faltaba —micrófonos y alt
 
 ## Por qué así
 
-La placa venía con el firmware **Xiaozhi**, un asistente de voz chino que manda el audio a sus propios servidores. Servía para comprobar que el hardware funciona, pero no encaja en Lora: habla chino, depende de servidores externos y usa un protocolo propio.
+La placa venía con el firmware **Xiaozhi**, un asistente de voz chino que manda el audio a sus propios servidores. Servía para comprobar que el hardware funciona, pero no encaja en ARFORD: habla chino, depende de servidores externos y usa un protocolo propio.
 
 Se evaluaron tres caminos:
 
 | Camino | Por qué se descartó o eligió |
 |---|---|
-| Servidor `xiaozhi-esp32-server` en la Pi | ❌ Pide 4-8 GB de RAM y duplica el LLM y el TTS que Lora ya tiene |
+| Servidor `xiaozhi-esp32-server` en la Pi | ❌ Pide 4-8 GB de RAM y duplica el LLM y el TTS que ARFORD ya tiene |
 | Protocolo propio por puerto serie | ❌ Hay que inventar y mantener el protocolo a los dos lados |
 | **Tarjeta de sonido USB (UAC)** | ✅ **Elegido.** La Pi la trata como audio estándar: `arecord` y `aplay` funcionan sin escribir nada |
 

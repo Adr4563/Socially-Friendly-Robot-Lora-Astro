@@ -1,6 +1,6 @@
-# Socially-Friendly-Robot-Lora-Astro
+# ARFORD — Socially Friendly Robot
 
-**Lora** es un robot social amigable (*socially friendly robot*) y socialmente asistivo (SAR, *Socially Assistive Robot*), orientado a la **interacción humano-robot (HRI)** con **niños y jóvenes con TDAH** (Trastorno por Déficit de Atención e Hiperactividad) **y TEA** (Trastorno del Espectro Autista), entre otras necesidades de apoyo.
+**ARFORD** es un robot social amigable (*socially friendly robot*) y socialmente asistivo (SAR, *Socially Assistive Robot*), orientado a la **interacción humano-robot (HRI)** con **niños y jóvenes con TDAH** (Trastorno por Déficit de Atención e Hiperactividad) **y TEA** (Trastorno del Espectro Autista), entre otras necesidades de apoyo.
 
 Su objetivo es ofrecer una interacción predecible, breve y motivadora: conversa (**Chat libre**) y juega **Trivia** por voz o texto, con una carita animada que expresa emociones, música, movimiento sobre un carrito mecanum y un juego de reconocimiento e imitación de emociones por cámara que ayuda a practicar la identificación de expresiones faciales.
 
@@ -8,11 +8,13 @@ Este repositorio contiene la versión **ROS 2 Jazzy** del robot: 4 paquetes que 
 
 > **Estado:** el código está escrito, la sintaxis de cada `.py` pasa `python -m py_compile` y cada paquete tiene la estructura que exige `colcon`. **Todavía no se ha corrido `colcon build` ni `ros2 launch` en un ROS 2 Jazzy real, ni se ha probado contra el hardware.** Ver la [verificación](ros2_ws/README.md#verificación) antes de darlo por funcional.
 
+> **Sobre el nombre:** el robot se llama **ARFORD**. Los identificadores internos conservan el prefijo `lora` por compatibilidad y **no deben cambiarse**: los 4 paquetes ROS 2 (`lora_brain`, `lora_drivers`, `lora_interfaces`, `lora_bringup`), los modelos de Ollama (`lora-chat-libre-v4`, `lora-trivia`, `lora-salida-trivia-v2`), el script `lora.sh` y el nombre USB de la placa de audio (`Lora Audio Board`, que determina `plughw:CARD=Lora`). Renombrarlos obliga a reconstruir el workspace, reimportar los modelos y reflashear la placa. Aparte, **LoRA** (en *fine-tunes LoRA*) es la técnica de fine-tuning, sin relación con el nombre del robot.
+
 ---
 
 ## Contenido
 
-- [Qué hace Lora](#qué-hace-lora)
+- [Qué hace ARFORD](#qué-hace-lora)
 - [Hardware](#hardware)
 - [Modelos de lenguaje (Ollama)](#modelos-de-lenguaje-ollama)
 - [Voz](#voz)
@@ -22,7 +24,7 @@ Este repositorio contiene la versión **ROS 2 Jazzy** del robot: 4 paquetes que 
 
 ---
 
-## Qué hace Lora
+## Qué hace ARFORD
 
 | Modo | Qué ocurre |
 |---|---|
@@ -30,7 +32,7 @@ Este repositorio contiene la versión **ROS 2 Jazzy** del robot: 4 paquetes que 
 | **Trivia** | Ofrece 5 temas al azar entre 51 (248 preguntas en total) y hace una tanda de 5 preguntas. Reacciona a cada respuesta con voz, cara, música y movimiento. |
 | **Juego de emociones** | Pide al usuario que imite una expresión ("¡Hazme una cara de feliz!"), la reconoce con la cámara y le dice si acertó. |
 
-En cada reacción, Lora sigue siempre el mismo **orden**: primero habla, y después cambia de cara, suena la música y se mueve. Esa secuencia fija hace que la interacción sea predecible.
+En cada reacción, ARFORD sigue siempre el mismo **orden**: primero habla, y después cambia de cara, suena la música y se mueve. Esa secuencia fija hace que la interacción sea predecible.
 
 El usuario puede comunicarse **por voz o por texto**, desde el teclado de la Pi o desde una página web en el teléfono. Si falta algún componente (cámara, carrito, pantalla), el robot sigue conversando con lo que tenga disponible.
 
@@ -100,7 +102,7 @@ Ollama corre en local (`http://localhost:11434`) y se usa su API compatible con 
 
 ## Voz
 
-### Salida (lo que dice Lora)
+### Salida (lo que dice ARFORD)
 
 Hay tres motores de voz, que se eligen con el parámetro `voz_motor`:
 
@@ -110,7 +112,7 @@ Hay tres motores de voz, que se eligen con el parámetro `voz_motor`:
 | `piper` | TTS neuronal 100 % local (ONNX), voz `es_MX-claude-high` (~60 MB) | Sin internet. Usa un solo hilo para dejar CPU a Ollama (sintetiza igual de rápido con 1 hilo que con 4) |
 | `edge` | `edge-tts` (Microsoft, en la nube), voz `es-AR-ElenaNeural` | **Respaldo** automático si nadie conecta el teléfono en 20 s o si Piper no carga |
 
-Lora espera a terminar de hablar antes de continuar con el turno.
+ARFORD espera a terminar de hablar antes de continuar con el turno.
 
 ### Entrada (lo que dice el usuario)
 
@@ -141,7 +143,7 @@ La transcripción la hace el **navegador del teléfono** (`SpeechRecognition`). 
 
 ```
 Socially-Friendly-Robot-Lora-Astro/
-├── README.md              este archivo: qué es Lora, hardware, IA y datos
+├── README.md              este archivo: qué es ARFORD, hardware, IA y datos
 ├── ros2_ws/               workspace ROS 2 Jazzy (el software del robot)
 │   ├── README.md          documentación técnica del workspace
 │   └── src/

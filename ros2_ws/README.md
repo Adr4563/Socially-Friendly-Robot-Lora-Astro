@@ -1,6 +1,6 @@
-# Workspace ROS 2 Jazzy de Lora
+# Workspace ROS 2 Jazzy de ARFORD
 
-Documentación técnica de los 4 paquetes ROS 2 del robot Lora. Para saber qué es Lora, su hardware, los modelos de IA y los datos que usa, ver el [README principal](../README.md).
+Documentación técnica de los 4 paquetes ROS 2 del robot ARFORD. Para saber qué es ARFORD, su hardware, los modelos de IA y los datos que usa, ver el [README principal](../README.md).
 
 > **Estado:** escrito y verificado en una máquina **sin ROS 2 instalado**. La sintaxis de cada `.py` pasa `python -m py_compile` y cada paquete tiene la estructura que exige `colcon` (`package.xml`, `setup.py` o `CMakeLists.txt`, `resource/<paquete>`, `entry_points`). **Todavía no se ha corrido `colcon build` ni `ros2 launch`.** Antes de darlo por funcional hay que seguir la sección [Verificación](#verificación) en la Raspberry Pi (o en WSL2 con ROS 2 Jazzy).
 
@@ -198,7 +198,7 @@ ros2 topic echo /lora/user_input
 ros2 service call /lora/is_voice_client_connected lora_interfaces/srv/IsVoiceClientConnected
 ```
 
-**Prueba completa:** escribe tu nombre cuando Lora te salude, pide Trivia, elige un tema y contesta una pregunta con respuesta numérica (por ejemplo, una multiplicación). Comprueba que Lora dice el veredicto, cambia de cara y, si la pregunta lo tiene configurado, se mueve y reproduce música.
+**Prueba completa:** escribe tu nombre cuando ARFORD te salude, pide Trivia, elige un tema y contesta una pregunta con respuesta numérica (por ejemplo, una multiplicación). Comprueba que ARFORD dice el veredicto, cambia de cara y, si la pregunta lo tiene configurado, se mueve y reproduce música.
 
 ---
 
@@ -218,16 +218,16 @@ ros2 service call /lora/is_voice_client_connected lora_interfaces/srv/IsVoiceCli
 1. Al entrar en Trivia se ofrecen 5 temas al azar y el usuario elige uno (coincidencia exacta o aproximada, sin LLM).
 2. `preguntas.py` carga una tanda de 5 preguntas del tema.
 3. Se hace la pregunta con la cara `speaking` y `Speak`. Si es musical, primero suena la canción completa (`PlayMusic` con `esperar=true`).
-4. Con la respuesta del usuario, `agent_corrector` decide si es correcta, `agent_behavior` elige la cara y Lora dice una frase fija elegida al azar.
+4. Con la respuesta del usuario, `agent_corrector` decide si es correcta, `agent_behavior` elige la cara y ARFORD dice una frase fija elegida al azar.
 5. La reacción sigue un **orden estricto**: primero `Speak` (bloquea) y después `FaceCommand`, `PlayMusic` (`esperar=false`) y `MotionCommand`, en paralelo.
 6. Se pasa a la siguiente pregunta o se cierra con el resumen de aciertos.
 
 ### Juego de emociones
 
 1. Se elige al azar una de las emociones que pide la pregunta y se publica esa cara como referencia.
-2. Lora lo pide por voz: "¡Hazme una cara de feliz!".
+2. ARFORD lo pide por voz: "¡Hazme una cara de feliz!".
 3. `DetectEmotion` captura y clasifica la cara (hasta 15 intentos).
-4. El veredicto compara la emoción pedida con la detectada. Lora dice una frase fija ("¡Correcto!" o "¡Incorrecto!") y luego cambia la cara, suena la música y se mueven los motores.
+4. El veredicto compara la emoción pedida con la detectada. ARFORD dice una frase fija ("¡Correcto!" o "¡Incorrecto!") y luego cambia la cara, suena la música y se mueven los motores.
 5. La tanda completa corre de una vez, sin volver al bucle principal entre preguntas.
 
 ### Salir de Trivia a mitad de una pregunta
@@ -242,7 +242,7 @@ Si el mensaje es corto (4 palabras o menos) y no contiene ninguna palabra clave 
 - **Orden voz → cara → (música + motores en paralelo).** Es un requisito del diseño. Lo garantiza `orchestrator_node.py::_reaccionar_veredicto()`, que espera la respuesta de `Speak` antes de publicar lo demás.
 - **Llamar a servicios desde un callback sin bloqueo mutuo (deadlock).** `client.call()` se queda bloqueado con un `SingleThreadedExecutor`; la solución es `call_async()` con una espera activa corta y un `MultiThreadedExecutor`. Está documentado en `lora_brain/_ros_bridge.py::_llamar_servicio_sync()` y es lo más fácil de romper al modificar este código.
 - **Degradación elegante.** Sin cámara, carrito o `mpv`, el nodo correspondiente sigue vivo y responde `detected=false` o `success=false`, sin lanzar nunca una excepción no controlada. El robot sigue conversando.
-- **"Salir" termina la sesión, no el proceso.** En el original, "salir" cerraba el script. Aquí Lora se despide y queda lista para el siguiente usuario, como corresponde a un robot desplegado (`orchestrator_node.py::_finalizar_sesion()`).
+- **"Salir" termina la sesión, no el proceso.** En el original, "salir" cerraba el script. Aquí ARFORD se despide y queda lista para el siguiente usuario, como corresponde a un robot desplegado (`orchestrator_node.py::_finalizar_sesion()`).
 - **Mandan las mediciones de latencia.** El router y el corrector dejaron de usar el LLM por mediciones hechas en la Pi. Ninguna capa nueva (tópicos, servicios, DDS) debería añadir una latencia perceptible a la conversación.
 - **STT: `whisper-tiny` con 2 hilos, por medición.** `_stt_engine.py` usa sherpa-onnx porque corre sobre `onnxruntime`, que ya está instalado para el detector de emociones, y porque no arrastra el fallo de hilos de `faster-whisper`. Medido en la Pi con un audio de 3.8 s (`scripts/bench_stt.py`): `tiny`/2 hilos da 2.22 s sin carga y **2.45 s con Ollama generando**, contra 4.41 s de `base`/2 hilos. Dos resultados contraintuitivos: **más hilos es más lento** (4 hilos sube a 3.45 s y dispara la varianza) y el mínimo no está en 1 hilo (3.29 s bajo carga). El precio de `tiny` es que transcribe "Hola Laura" donde `base` acierta "Hola Lora"; para Trivia lo absorbe el `agent_corrector`, pero si el nombre llega a importar hay que volver a `base`.
 - **Recursos muy limitados.** La Pi 4 no tiene GPU y reparte la CPU entre Ollama (~3 de sus 4 núcleos mientras genera, con ~545 MB de RAM residente), la síntesis de voz, la decodificación de video y la cámara. Cada nodo nuevo añade su propio proceso y la sobrecarga de DDS.
